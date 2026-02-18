@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import SignIn, { DEMO_USERS } from "./SignIn";
 
 // ─── ICON COMPONENTS ───
 const Icons = {
@@ -478,6 +479,8 @@ const AddTaskModal = ({ onClose, onAdd, projects }) => {
 
 // ─── MAIN APP ───
 export default function ProjectManagementApp() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [activeView, setActiveView] = useState("dashboard");
   const [tasks, setTasks] = useState(generateTasks);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -486,6 +489,20 @@ export default function ProjectManagementApp() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
   const [selectedTask, setSelectedTask] = useState(null);
+  const [adminUsers, setAdminUsers] = useState(
+    DEMO_USERS.map(({ password: _pw, ...u }) => u)
+  );
+
+  const handleSignIn = (user) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+  };
+
+  const handleSignOut = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setActiveView("dashboard");
+  };
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
@@ -530,6 +547,9 @@ export default function ProjectManagementApp() {
     { id: "timeline", label: "Timeline", icon: <Icons.Timeline /> },
     { id: "reports", label: "Reports", icon: <Icons.Reports /> },
     { id: "team", label: "Team", icon: <Icons.Users /> },
+    ...(currentUser?.role === "admin"
+      ? [{ id: "admin", label: "Admin", icon: <Icons.Settings /> }]
+      : []),
   ];
 
   const Sidebar = () => (
@@ -595,14 +615,56 @@ export default function ProjectManagementApp() {
         )}
       </div>
 
-      {/* User */}
-      {!sidebarCollapsed && (
-        <div style={{ padding: "12px 14px", borderTop: `1px solid ${theme.border.subtle}`, display: "flex", alignItems: "center", gap: 10 }}>
-          <Avatar member={teamMembers[0]} size={32} />
-          <div style={{ overflow: "hidden" }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: theme.text.primary }}>Gerardo M.</div>
-            <div style={{ fontSize: 11, color: theme.text.muted }}>Ops Manager</div>
+      {/* User + Sign Out */}
+      {!sidebarCollapsed ? (
+        <div style={{ padding: "12px 14px", borderTop: `1px solid ${theme.border.subtle}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            {currentUser && (
+              <Avatar member={currentUser} size={32} />
+            )}
+            <div style={{ overflow: "hidden", flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: theme.text.primary }}>{currentUser?.name}</div>
+              <div style={{ fontSize: 11, color: theme.text.muted, textTransform: "capitalize" }}>{currentUser?.title || currentUser?.role}</div>
+            </div>
+            {currentUser?.role === "admin" && (
+              <span style={{
+                padding: "2px 7px", borderRadius: 5, fontSize: 9, fontWeight: 700,
+                textTransform: "uppercase", letterSpacing: "0.05em",
+                background: `${theme.accent.primary}20`, color: theme.accent.primary,
+                border: `1px solid ${theme.accent.primary}40`, flexShrink: 0,
+              }}>Admin</span>
+            )}
           </div>
+          <button onClick={handleSignOut} style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            width: "100%", padding: "7px 0", borderRadius: 8, fontSize: 12,
+            fontWeight: 600, cursor: "pointer", border: `1px solid ${theme.border.subtle}`,
+            background: theme.bg.elevated, color: theme.text.muted,
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = `${theme.accent.danger}18`; e.currentTarget.style.color = theme.accent.danger; e.currentTarget.style.borderColor = `${theme.accent.danger}40`; }}
+          onMouseLeave={e => { e.currentTarget.style.background = theme.bg.elevated; e.currentTarget.style.color = theme.text.muted; e.currentTarget.style.borderColor = theme.border.subtle; }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Sign out
+          </button>
+        </div>
+      ) : (
+        <div style={{ padding: "12px 0", borderTop: `1px solid ${theme.border.subtle}`, display: "flex", justifyContent: "center" }}>
+          <button onClick={handleSignOut} title="Sign out" style={{
+            background: "none", border: "none", color: theme.text.muted,
+            cursor: "pointer", padding: 8, borderRadius: 8, display: "flex", alignItems: "center",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = theme.accent.danger; }}
+          onMouseLeave={e => { e.currentTarget.style.color = theme.text.muted; }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
         </div>
       )}
     </div>
@@ -617,6 +679,16 @@ export default function ProjectManagementApp() {
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text.primary, letterSpacing: "-0.01em" }}>
           {navItems.find(n => n.id === activeView)?.label || "Dashboard"}
+          {activeView === "admin" && (
+            <span style={{
+              marginLeft: 10, fontSize: 11, fontWeight: 700,
+              padding: "3px 9px", borderRadius: 6,
+              background: `${theme.accent.primary}20`, color: theme.accent.primary,
+              border: `1px solid ${theme.accent.primary}40`,
+              textTransform: "uppercase", letterSpacing: "0.06em",
+              verticalAlign: "middle",
+            }}>Panel</span>
+          )}
         </h2>
         <div style={{
           display: "flex", alignItems: "center", gap: 8, background: theme.bg.input,
@@ -1250,7 +1322,480 @@ export default function ProjectManagementApp() {
     );
   };
 
+  // ─── ADMIN VIEW ───
+  const AdminView = () => {
+    const [adminTab, setAdminTab] = useState("overview");
+    const [editingUser, setEditingUser] = useState(null);
+    const [showAddUser, setShowAddUser] = useState(false);
+    const [newUser, setNewUser] = useState({ name: "", email: "", role: "user", color: "#6C5CE7" });
+    const [settingValues, setSettingValues] = useState({
+      twoFactor: true, emailNotifs: true, slackIntegration: false,
+      autoAssign: true, weeklyReport: true, auditLog: true,
+    });
+
+    const totalTasks = tasks.length;
+    const doneTasks = tasks.filter(t => t.status === "done").length;
+    const totalHours = tasks.reduce((a, t) => a + t.timeSpent, 0);
+
+    const auditLog = [
+      { user: "Admin User", action: "Updated user role", target: "Ana López → Editor", time: "5m ago", type: "role" },
+      { user: "Admin User", action: "Added new user", target: "Carlos R.", time: "2h ago", type: "user" },
+      { user: "Admin User", action: "Changed system setting", target: "Two-factor auth enabled", time: "1d ago", type: "setting" },
+      { user: "Gerardo M.", action: "Created project", target: "API Integration", time: "2d ago", type: "project" },
+      { user: "Admin User", action: "Deleted task", target: "Obsolete feature #12", time: "3d ago", type: "delete" },
+      { user: "Ana López", action: "Exported report", target: "Q4 Performance PDF", time: "4d ago", type: "export" },
+      { user: "Admin User", action: "Bulk assigned tasks", target: "Sprint 14 (8 tasks)", time: "5d ago", type: "assign" },
+    ];
+
+    const auditTypeColor = { role: theme.accent.warning, user: theme.accent.success, setting: theme.accent.primary, project: theme.accent.secondary, delete: theme.accent.danger, export: theme.accent.info, assign: theme.accent.primary };
+
+    const tabs = [
+      { id: "overview", label: "Overview" },
+      { id: "users", label: "Users" },
+      { id: "settings", label: "Settings" },
+      { id: "audit", label: "Audit Log" },
+    ];
+
+    const inputStyle = {
+      background: theme.bg.input, border: `1px solid ${theme.border.medium}`, borderRadius: 10,
+      padding: "9px 13px", color: theme.text.primary, fontSize: 13, outline: "none",
+      width: "100%",
+    };
+
+    const roleColors = {
+      admin: { bg: `${theme.accent.primary}20`, color: theme.accent.primary, border: `${theme.accent.primary}40` },
+      user: { bg: `${theme.accent.secondary}15`, color: theme.accent.secondary, border: `${theme.accent.secondary}30` },
+    };
+
+    const handleAddUser = () => {
+      if (!newUser.name.trim() || !newUser.email.trim()) return;
+      const initials = newUser.name.trim().split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+      setAdminUsers(prev => [...prev, { id: `u${Date.now()}`, ...newUser, avatar: initials, title: "Team Member" }]);
+      setNewUser({ name: "", email: "", role: "user", color: "#6C5CE7" });
+      setShowAddUser(false);
+    };
+
+    const handleDeleteUser = (id) => {
+      if (id === currentUser?.id) return;
+      setAdminUsers(prev => prev.filter(u => u.id !== id));
+    };
+
+    const handleRoleChange = (id, role) => {
+      setAdminUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u));
+    };
+
+    return (
+      <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+        {/* Tab bar */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 24, background: theme.bg.secondary, borderRadius: 12, padding: 5, width: "fit-content" }}>
+          {tabs.map(tab => (
+            <button key={tab.id} onClick={() => setAdminTab(tab.id)} style={{
+              padding: "7px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+              fontSize: 13, fontWeight: 600,
+              background: adminTab === tab.id ? theme.bg.elevated : "transparent",
+              color: adminTab === tab.id ? theme.text.primary : theme.text.muted,
+              transition: "all 0.2s",
+              boxShadow: adminTab === tab.id ? `0 1px 4px rgba(0,0,0,0.3)` : "none",
+            }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── OVERVIEW TAB ── */}
+        {adminTab === "overview" && (
+          <div>
+            {/* KPI cards */}
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
+              {[
+                { label: "Total Users", value: adminUsers.length, icon: "👥", color: theme.accent.primary },
+                { label: "Admin Users", value: adminUsers.filter(u => u.role === "admin").length, icon: "🛡️", color: theme.accent.warning },
+                { label: "Total Tasks", value: totalTasks, icon: "📋", color: theme.accent.secondary },
+                { label: "Tasks Completed", value: doneTasks, icon: "✅", color: theme.accent.success },
+                { label: "Hours Logged", value: `${totalHours}h`, icon: "⏱️", color: theme.accent.info },
+                { label: "Active Projects", value: initialProjects.length, icon: "📁", color: theme.accent.danger },
+              ].map(kpi => (
+                <div key={kpi.label} style={{
+                  flex: "1 1 160px", minWidth: 160, background: theme.bg.card,
+                  borderRadius: 14, padding: "18px 20px",
+                  border: `1px solid ${theme.border.subtle}`,
+                }}>
+                  <div style={{ fontSize: 22, marginBottom: 8 }}>{kpi.icon}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: kpi.color, letterSpacing: "-0.02em" }}>{kpi.value}</div>
+                  <div style={{ fontSize: 12, color: theme.text.muted, marginTop: 2 }}>{kpi.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* User list preview + project breakdown */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ background: theme.bg.card, borderRadius: 16, padding: 24, border: `1px solid ${theme.border.subtle}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: theme.text.primary }}>Team Roster</span>
+                  <button onClick={() => setAdminTab("users")} style={{
+                    background: "none", border: "none", color: theme.accent.primary,
+                    fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  }}>View all</button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {adminUsers.slice(0, 5).map(u => (
+                    <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: "50%", display: "flex",
+                        alignItems: "center", justifyContent: "center", fontSize: 11,
+                        fontWeight: 700, color: "#fff", flexShrink: 0,
+                        background: `linear-gradient(135deg, ${u.color}, ${u.color}99)`,
+                      }}>{u.avatar}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: theme.text.primary }}>{u.name}</div>
+                        <div style={{ fontSize: 11, color: theme.text.muted }}>{u.email}</div>
+                      </div>
+                      <span style={{
+                        padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                        textTransform: "uppercase", letterSpacing: "0.04em",
+                        background: roleColors[u.role]?.bg, color: roleColors[u.role]?.color,
+                        border: `1px solid ${roleColors[u.role]?.border}`,
+                      }}>{u.role}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ background: theme.bg.card, borderRadius: 16, padding: 24, border: `1px solid ${theme.border.subtle}` }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: theme.text.primary, marginBottom: 16 }}>Project Load</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {initialProjects.map(p => {
+                    const projectTasks = tasks.filter(t => t.project.id === p.id);
+                    const done = projectTasks.filter(t => t.status === "done").length;
+                    const pct = projectTasks.length ? Math.round((done / projectTasks.length) * 100) : 0;
+                    return (
+                      <div key={p.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span>{p.icon}</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: theme.text.primary }}>{p.name}</span>
+                          </div>
+                          <span style={{ fontSize: 12, color: theme.text.muted }}>{done}/{projectTasks.length}</span>
+                        </div>
+                        <div style={{ height: 5, borderRadius: 3, background: theme.bg.secondary, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, borderRadius: 3, background: `linear-gradient(90deg, ${p.color}, ${p.color}88)`, transition: "width 0.8s ease" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── USERS TAB ── */}
+        {adminTab === "users" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: theme.text.primary }}>{adminUsers.length} team members</div>
+                <div style={{ fontSize: 13, color: theme.text.muted }}>Manage roles and access</div>
+              </div>
+              <button onClick={() => setShowAddUser(true)} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "9px 18px",
+                borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                background: `linear-gradient(135deg, ${theme.accent.primary}, ${theme.accent.primaryHover})`,
+                color: "#fff", boxShadow: `0 4px 16px ${theme.accent.primary}44`,
+              }}>
+                <Icons.Plus /> Add User
+              </button>
+            </div>
+
+            {/* Add user form */}
+            {showAddUser && (
+              <div style={{
+                background: theme.bg.card, borderRadius: 16, padding: 24,
+                border: `1px solid ${theme.accent.primary}33`, marginBottom: 20,
+                boxShadow: `0 0 0 1px ${theme.accent.primary}15`,
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: theme.text.primary, marginBottom: 16 }}>New User</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: theme.text.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Full Name</label>
+                    <input value={newUser.name} onChange={e => setNewUser(p => ({ ...p, name: e.target.value }))} placeholder="John Doe" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: theme.text.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Email</label>
+                    <input value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} placeholder="john@pulse.pm" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: theme.text.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Role</label>
+                    <select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}>
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={handleAddUser} style={{
+                      padding: "9px 18px", borderRadius: 10, border: "none", cursor: "pointer",
+                      fontSize: 13, fontWeight: 700, background: theme.accent.success, color: "#fff",
+                    }}>Add</button>
+                    <button onClick={() => setShowAddUser(false)} style={{
+                      padding: "9px 14px", borderRadius: 10, border: `1px solid ${theme.border.medium}`,
+                      cursor: "pointer", fontSize: 13, background: "none", color: theme.text.muted,
+                    }}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Users table */}
+            <div style={{ background: theme.bg.card, borderRadius: 16, border: `1px solid ${theme.border.subtle}`, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr 1fr 80px", padding: "12px 20px", borderBottom: `1px solid ${theme.border.subtle}` }}>
+                {["User", "Email", "Role", "Tasks", "Actions"].map(h => (
+                  <span key={h} style={{ fontSize: 11, fontWeight: 700, color: theme.text.muted, textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</span>
+                ))}
+              </div>
+              {adminUsers.map((u, i) => {
+                const userTasks = tasks.filter(t => t.assignee?.id === u.id);
+                return (
+                  <div key={u.id} style={{
+                    display: "grid", gridTemplateColumns: "2fr 2fr 1fr 1fr 80px",
+                    padding: "14px 20px", alignItems: "center",
+                    borderBottom: i < adminUsers.length - 1 ? `1px solid ${theme.border.subtle}` : "none",
+                    background: editingUser === u.id ? theme.bg.elevated : "transparent",
+                    transition: "background 0.2s",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 12, fontWeight: 700, color: "#fff",
+                        background: `linear-gradient(135deg, ${u.color}, ${u.color}99)`,
+                      }}>{u.avatar}</div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: theme.text.primary }}>{u.name}</div>
+                        <div style={{ fontSize: 11, color: theme.text.muted }}>{u.title || "Team Member"}</div>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 13, color: theme.text.secondary }}>{u.email}</span>
+                    <div>
+                      {editingUser === u.id ? (
+                        <select
+                          value={u.role}
+                          onChange={e => handleRoleChange(u.id, e.target.value)}
+                          style={{ ...inputStyle, width: "auto", padding: "5px 10px", fontSize: 12 }}
+                        >
+                          <option value="user">User</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      ) : (
+                        <span style={{
+                          padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700,
+                          textTransform: "uppercase", letterSpacing: "0.04em",
+                          background: roleColors[u.role]?.bg, color: roleColors[u.role]?.color,
+                          border: `1px solid ${roleColors[u.role]?.border}`,
+                        }}>{u.role}</span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 13, color: theme.text.secondary }}>{userTasks.length} tasks</span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        onClick={() => setEditingUser(editingUser === u.id ? null : u.id)}
+                        title={editingUser === u.id ? "Done" : "Edit"}
+                        style={{
+                          width: 28, height: 28, borderRadius: 7, border: "none",
+                          background: editingUser === u.id ? `${theme.accent.success}22` : theme.bg.elevated,
+                          color: editingUser === u.id ? theme.accent.success : theme.text.muted,
+                          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 12, fontWeight: 700,
+                        }}
+                      >
+                        {editingUser === u.id ? "✓" : (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(u.id)}
+                        disabled={u.id === currentUser?.id}
+                        title={u.id === currentUser?.id ? "Cannot remove yourself" : "Remove user"}
+                        style={{
+                          width: 28, height: 28, borderRadius: 7, border: "none",
+                          background: u.id === currentUser?.id ? theme.bg.secondary : `${theme.accent.danger}18`,
+                          color: u.id === currentUser?.id ? theme.text.muted : theme.accent.danger,
+                          cursor: u.id === currentUser?.id ? "not-allowed" : "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center", opacity: u.id === currentUser?.id ? 0.4 : 1,
+                        }}
+                      >
+                        <Icons.X />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── SETTINGS TAB ── */}
+        {adminTab === "settings" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 640 }}>
+            {/* Security */}
+            <div style={{ background: theme.bg.card, borderRadius: 16, padding: 24, border: `1px solid ${theme.border.subtle}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: theme.text.primary, marginBottom: 4 }}>Security</div>
+              <div style={{ fontSize: 13, color: theme.text.muted, marginBottom: 20 }}>Authentication and access control settings</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                {[
+                  { key: "twoFactor", label: "Two-factor authentication", desc: "Require 2FA for all admin accounts" },
+                  { key: "auditLog", label: "Audit logging", desc: "Log all admin actions and access events" },
+                ].map(s => (
+                  <div key={s.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: theme.text.primary }}>{s.label}</div>
+                      <div style={{ fontSize: 12, color: theme.text.muted, marginTop: 2 }}>{s.desc}</div>
+                    </div>
+                    <button
+                      onClick={() => setSettingValues(p => ({ ...p, [s.key]: !p[s.key] }))}
+                      style={{
+                        width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+                        background: settingValues[s.key] ? theme.accent.primary : theme.bg.elevated,
+                        position: "relative", transition: "background 0.3s", flexShrink: 0,
+                      }}
+                    >
+                      <div style={{
+                        position: "absolute", top: 3, left: settingValues[s.key] ? 23 : 3,
+                        width: 18, height: 18, borderRadius: "50%",
+                        background: "#fff", transition: "left 0.3s",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                      }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Notifications */}
+            <div style={{ background: theme.bg.card, borderRadius: 16, padding: 24, border: `1px solid ${theme.border.subtle}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: theme.text.primary, marginBottom: 4 }}>Notifications</div>
+              <div style={{ fontSize: 13, color: theme.text.muted, marginBottom: 20 }}>Control how and when your team gets notified</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                {[
+                  { key: "emailNotifs", label: "Email notifications", desc: "Send task updates and mentions via email" },
+                  { key: "slackIntegration", label: "Slack integration", desc: "Post activity updates to Slack channels" },
+                  { key: "weeklyReport", label: "Weekly digest", desc: "Send automated weekly summary to all users" },
+                ].map(s => (
+                  <div key={s.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: theme.text.primary }}>{s.label}</div>
+                      <div style={{ fontSize: 12, color: theme.text.muted, marginTop: 2 }}>{s.desc}</div>
+                    </div>
+                    <button
+                      onClick={() => setSettingValues(p => ({ ...p, [s.key]: !p[s.key] }))}
+                      style={{
+                        width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+                        background: settingValues[s.key] ? theme.accent.primary : theme.bg.elevated,
+                        position: "relative", transition: "background 0.3s", flexShrink: 0,
+                      }}
+                    >
+                      <div style={{
+                        position: "absolute", top: 3, left: settingValues[s.key] ? 23 : 3,
+                        width: 18, height: 18, borderRadius: "50%",
+                        background: "#fff", transition: "left 0.3s",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                      }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Workflow */}
+            <div style={{ background: theme.bg.card, borderRadius: 16, padding: 24, border: `1px solid ${theme.border.subtle}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: theme.text.primary, marginBottom: 4 }}>Workflow</div>
+              <div style={{ fontSize: 13, color: theme.text.muted, marginBottom: 20 }}>Configure team productivity defaults</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                {[
+                  { key: "autoAssign", label: "Auto-assign tasks", desc: "Automatically assign new tasks based on workload" },
+                ].map(s => (
+                  <div key={s.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: theme.text.primary }}>{s.label}</div>
+                      <div style={{ fontSize: 12, color: theme.text.muted, marginTop: 2 }}>{s.desc}</div>
+                    </div>
+                    <button
+                      onClick={() => setSettingValues(p => ({ ...p, [s.key]: !p[s.key] }))}
+                      style={{
+                        width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+                        background: settingValues[s.key] ? theme.accent.primary : theme.bg.elevated,
+                        position: "relative", transition: "background 0.3s", flexShrink: 0,
+                      }}
+                    >
+                      <div style={{
+                        position: "absolute", top: 3, left: settingValues[s.key] ? 23 : 3,
+                        width: 18, height: 18, borderRadius: "50%",
+                        background: "#fff", transition: "left 0.3s",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                      }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── AUDIT LOG TAB ── */}
+        {adminTab === "audit" && (
+          <div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: theme.text.primary }}>Audit Log</div>
+              <div style={{ fontSize: 13, color: theme.text.muted }}>A record of all administrative actions</div>
+            </div>
+            <div style={{ background: theme.bg.card, borderRadius: 16, border: `1px solid ${theme.border.subtle}`, overflow: "hidden" }}>
+              {auditLog.map((entry, i) => (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", gap: 16, padding: "16px 20px",
+                  borderBottom: i < auditLog.length - 1 ? `1px solid ${theme.border.subtle}` : "none",
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: `${auditTypeColor[entry.type] || theme.accent.primary}18`,
+                    border: `1px solid ${(auditTypeColor[entry.type] || theme.accent.primary)}30`,
+                  }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: auditTypeColor[entry.type] || theme.accent.primary }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: theme.text.secondary }}>
+                      <span style={{ fontWeight: 700, color: theme.text.primary }}>{entry.user}</span>
+                      {" "}{entry.action}{" "}
+                      <span style={{ fontWeight: 600, color: auditTypeColor[entry.type] || theme.accent.primary }}>
+                        {entry.target}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{
+                      padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                      textTransform: "uppercase", letterSpacing: "0.05em",
+                      background: `${auditTypeColor[entry.type] || theme.accent.primary}18`,
+                      color: auditTypeColor[entry.type] || theme.accent.primary,
+                    }}>{entry.type}</span>
+                    <span style={{ fontSize: 12, color: theme.text.muted, whiteSpace: "nowrap" }}>{entry.time}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ─── RENDER ───
+  if (!isAuthenticated) {
+    return <SignIn onSignIn={handleSignIn} />;
+  }
+
   return (
     <div style={{
       display: "flex", height: "100vh", width: "100%", background: theme.bg.primary,
@@ -1279,6 +1824,7 @@ export default function ProjectManagementApp() {
         {activeView === "timeline" && <TimelineView />}
         {activeView === "reports" && <ReportsView />}
         {activeView === "team" && <TeamView />}
+        {activeView === "admin" && currentUser?.role === "admin" && <AdminView />}
       </div>
 
       {showAddTask && <AddTaskModal onClose={() => setShowAddTask(false)} onAdd={addTask} projects={initialProjects} />}
